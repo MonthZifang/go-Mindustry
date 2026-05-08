@@ -230,22 +230,24 @@ func (r *bindStatusResolver) Bound(connUUID string) bool {
 	return bound
 }
 
-var runtimePlayerNameColorEnabled atomic.Bool
-var runtimePublicConnUUIDEnabled atomic.Bool
-var runtimeJoinLeaveChatEnabled atomic.Bool
-var runtimePlayerNamePrefix atomic.Value
-var runtimePlayerNameSuffix atomic.Value
-var runtimePlayerBindPrefixEnabled atomic.Bool
-var runtimePlayerBoundPrefix atomic.Value
-var runtimePlayerUnboundPrefix atomic.Value
-var runtimePlayerTitleEnabled atomic.Bool
-var runtimePlayerConnIDSuffixEnabled atomic.Bool
-var runtimePlayerConnIDSuffixFormat atomic.Value
-var runtimePublicConnUUIDStore *persist.PublicConnUUIDStore
-var runtimePlayerIdentityStore *persist.PlayerIdentityStore
-var runtimeBindStatusResolver *bindStatusResolver
-var blockNameTranslationMu sync.RWMutex
-var blockNameTranslations = defaultBlockNameTranslations()
+var (
+	runtimePlayerNameColorEnabled    atomic.Bool
+	runtimePublicConnUUIDEnabled     atomic.Bool
+	runtimeJoinLeaveChatEnabled      atomic.Bool
+	runtimePlayerNamePrefix          atomic.Value
+	runtimePlayerNameSuffix          atomic.Value
+	runtimePlayerBindPrefixEnabled   atomic.Bool
+	runtimePlayerBoundPrefix         atomic.Value
+	runtimePlayerUnboundPrefix       atomic.Value
+	runtimePlayerTitleEnabled        atomic.Bool
+	runtimePlayerConnIDSuffixEnabled atomic.Bool
+	runtimePlayerConnIDSuffixFormat  atomic.Value
+	runtimePublicConnUUIDStore       *persist.PublicConnUUIDStore
+	runtimePlayerIdentityStore       *persist.PlayerIdentityStore
+	runtimeBindStatusResolver        *bindStatusResolver
+	blockNameTranslationMu           sync.RWMutex
+	blockNameTranslations            = defaultBlockNameTranslations()
+)
 
 type detailedLogWriter struct {
 	mu       sync.Mutex
@@ -1124,7 +1126,18 @@ func main() {
 	// Mod system disabled for now
 	var modMgr interface{} = nil
 	if cfg.Mods.Enabled {
-		startup.warn("模组系统", "暂未实现")
+		// startup.warn("模组系统", "暂未实现")
+		files, err := os.ReadDir(cfg.Mods.Directory)
+		if err == nil {
+			for _, mod := range files {
+				if strings.HasSuffix(mod.Name(), ".plugin") && !mod.IsDir() {
+					pluginMod := filepath.Join(cfg.Mods.Directory, mod.Name())
+					startup.info("模组系统", "开始加载"+pluginMod)
+					ModLoader(pluginMod)
+
+				}
+			}
+		}
 	} else {
 		startup.info("Mods", "未启用")
 	}
@@ -4786,7 +4799,7 @@ func runGoInDir(baseDir, target string, args ...string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := os.MkdirAll(absBase, 0755); err != nil {
+	if err := os.MkdirAll(absBase, 0o755); err != nil {
 		return "", err
 	}
 	clean := strings.TrimSpace(target)
@@ -4823,7 +4836,7 @@ func securePathInDir(baseDir, relative string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	if err := os.MkdirAll(absBase, 0755); err != nil {
+	if err := os.MkdirAll(absBase, 0o755); err != nil {
 		return "", "", err
 	}
 	rel := filepath.Clean(strings.TrimSpace(relative))
